@@ -1,21 +1,22 @@
 """Custom error handling and API error responses."""
 
-from typing import Any, Optional
+from typing import Any
+
 from fastapi import HTTPException, status
 from pydantic import BaseModel
 
 
 class APIError(BaseModel):
     """Standardized API error response model."""
-    
+
     code: str
     message: str
-    details: Optional[dict[str, Any]] = None
+    details: dict[str, Any] | None = None
 
 
 class APIErrorResponse(BaseModel):
     """Standardized API error response envelope."""
-    
+
     success: bool = False
     error: APIError
 
@@ -27,20 +28,20 @@ class APIErrorResponse(BaseModel):
 
 class AppException(Exception):
     """Base application exception."""
-    
+
     def __init__(
         self,
         message: str,
         code: str = "INTERNAL_ERROR",
         status_code: int = status.HTTP_500_INTERNAL_SERVER_ERROR,
-        details: Optional[dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ):
         self.message = message
         self.code = code
         self.status_code = status_code
         self.details = details
         super().__init__(self.message)
-    
+
     def to_error_response(self) -> APIErrorResponse:
         """Convert exception to standardized error response."""
         return APIErrorResponse(
@@ -54,7 +55,7 @@ class AppException(Exception):
 
 class AuthenticationError(AppException):
     """Authentication-related errors."""
-    
+
     def __init__(
         self,
         message: str = "Authentication failed",
@@ -69,7 +70,7 @@ class AuthenticationError(AppException):
 
 class AuthorizationError(AppException):
     """Authorization-related errors (user lacks permission)."""
-    
+
     def __init__(
         self,
         message: str = "You do not have permission to access this resource",
@@ -84,7 +85,7 @@ class AuthorizationError(AppException):
 
 class NotFoundError(AppException):
     """Resource not found errors."""
-    
+
     def __init__(
         self,
         message: str = "Resource not found",
@@ -99,12 +100,12 @@ class NotFoundError(AppException):
 
 class ValidationError(AppException):
     """Input validation errors."""
-    
+
     def __init__(
         self,
         message: str = "Validation failed",
         code: str = "VALIDATION_ERROR",
-        details: Optional[dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ):
         super().__init__(
             message=message,
@@ -116,7 +117,7 @@ class ValidationError(AppException):
 
 class ConflictError(AppException):
     """Resource conflict errors (e.g., duplicate)."""
-    
+
     def __init__(
         self,
         message: str = "Resource conflict",
@@ -131,7 +132,7 @@ class ConflictError(AppException):
 
 class RateLimitError(AppException):
     """Rate limit exceeded errors."""
-    
+
     def __init__(
         self,
         message: str = "Rate limit exceeded. Please try again later.",
@@ -146,7 +147,7 @@ class RateLimitError(AppException):
 
 class FinancialError(AppException):
     """Financial operation errors."""
-    
+
     def __init__(
         self,
         message: str,
@@ -161,7 +162,7 @@ class FinancialError(AppException):
 
 class DatabaseError(AppException):
     """Database operation errors."""
-    
+
     def __init__(
         self,
         message: str = "Database operation failed",
@@ -181,7 +182,7 @@ class DatabaseError(AppException):
 
 class UserNotFoundError(NotFoundError):
     """User not found."""
-    
+
     def __init__(self, user_id: str):
         super().__init__(
             message=f"User not found: {user_id}",
@@ -191,7 +192,7 @@ class UserNotFoundError(NotFoundError):
 
 class UserAlreadyExistsError(ConflictError):
     """User already exists."""
-    
+
     def __init__(self, email: str):
         super().__init__(
             message=f"User with email '{email}' already exists",
@@ -201,7 +202,7 @@ class UserAlreadyExistsError(ConflictError):
 
 class TransactionNotFoundError(NotFoundError):
     """Transaction not found."""
-    
+
     def __init__(self, transaction_id: str):
         super().__init__(
             message=f"Transaction not found: {transaction_id}",
@@ -211,7 +212,7 @@ class TransactionNotFoundError(NotFoundError):
 
 class InsufficientFundsError(FinancialError):
     """Insufficient funds for operation."""
-    
+
     def __init__(self, required: int, available: int, currency: str):
         super().__init__(
             message=f"Insufficient funds. Required: {required}, Available: {available} {currency}",
@@ -221,7 +222,7 @@ class InsufficientFundsError(FinancialError):
 
 class InvalidAmountError(FinancialError):
     """Invalid amount for financial operation."""
-    
+
     def __init__(self, message: str = "Invalid amount"):
         super().__init__(
             message=message,
@@ -231,7 +232,7 @@ class InvalidAmountError(FinancialError):
 
 class InvalidCurrencyError(FinancialError):
     """Invalid or unsupported currency."""
-    
+
     def __init__(self, currency: str):
         super().__init__(
             message=f"Invalid or unsupported currency: {currency}",
@@ -241,7 +242,7 @@ class InvalidCurrencyError(FinancialError):
 
 class SessionExpiredError(AuthenticationError):
     """Session has expired."""
-    
+
     def __init__(self):
         super().__init__(
             message="Session expired. Please log in again.",
@@ -251,7 +252,7 @@ class SessionExpiredError(AuthenticationError):
 
 class InvalidTokenError(AuthenticationError):
     """Token is invalid."""
-    
+
     def __init__(self):
         super().__init__(
             message="Invalid or malformed token",
@@ -261,7 +262,7 @@ class InvalidTokenError(AuthenticationError):
 
 class TokenRevokedError(AuthenticationError):
     """Token has been revoked."""
-    
+
     def __init__(self):
         super().__init__(
             message="Token has been revoked. Please log in again.",
@@ -295,7 +296,7 @@ async def generic_exception_handler(request, exc: Exception):
     from app.core.logging import get_logger
     logger = get_logger(__name__)
     logger.exception(f"Unexpected error: {exc}")
-    
+
     # Return safe error to client
     return APIErrorResponse(
         error=APIError(

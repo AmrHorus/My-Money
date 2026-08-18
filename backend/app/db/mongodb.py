@@ -1,6 +1,6 @@
 """MongoDB database connection and management."""
 
-from typing import Optional
+
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
 
@@ -10,8 +10,8 @@ from app.core.logging import get_logger
 logger = get_logger(__name__)
 
 # Global database client instance
-_client: Optional[AsyncIOMotorClient] = None
-_db: Optional[AsyncIOMotorDatabase] = None
+_client: AsyncIOMotorClient | None = None
+_db: AsyncIOMotorDatabase | None = None
 
 
 def get_connection_string() -> str:
@@ -32,10 +32,10 @@ async def connect_to_mongodb() -> None:
         ConnectionFailure: If connection cannot be established
     """
     global _client, _db
-    
+
     try:
         logger.info(f"Connecting to MongoDB at {settings.mongodb_uri}")
-        
+
         _client = AsyncIOMotorClient(
             settings.mongodb_uri,
             serverSelectionTimeoutMS=5000,
@@ -44,14 +44,14 @@ async def connect_to_mongodb() -> None:
             maxPoolSize=50,
             minPoolSize=10,
         )
-        
+
         # Verify connection by pinging
         await _client.admin.command("ping")
-        
+
         _db = _client[settings.mongodb_database]
-        
+
         logger.info(f"Successfully connected to MongoDB database: {settings.mongodb_database}")
-        
+
     except (ConnectionFailure, ServerSelectionTimeoutError) as e:
         logger.error(f"Failed to connect to MongoDB: {e}")
         raise
@@ -60,7 +60,7 @@ async def connect_to_mongodb() -> None:
 async def disconnect_from_mongodb() -> None:
     """Close MongoDB connection."""
     global _client, _db
-    
+
     if _client:
         logger.info("Closing MongoDB connection")
         _client.close()
@@ -108,10 +108,10 @@ async def verify_connection() -> bool:
     try:
         if _client is None:
             return False
-        
+
         await _client.admin.command("ping")
         return True
-        
+
     except Exception as e:
         logger.error(f"MongoDB connection verification failed: {e}")
         return False
