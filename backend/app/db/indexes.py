@@ -63,7 +63,7 @@ async def create_indexes(db: AsyncIOMotorDatabase) -> None:
         [("user_id", 1), ("created_at", -1)],
         name="idx_savings_goals_user_created"
     )
-    await db.budgets.create_index([("updated_at", -1)], name="idx_savings_goals_updated_at")
+    await db.savings_goals.create_index([("updated_at", -1)], name="idx_savings_goals_updated_at")
 
     # Recurring expenses collection indexes
     await db.recurring_expenses.create_index(
@@ -108,6 +108,19 @@ async def create_indexes(db: AsyncIOMotorDatabase) -> None:
         name="idx_sync_events_user_timestamp"
     )
     await db.sync_events.create_index([("status", 1)], name="idx_sync_events_status")
+
+    # Idempotency keys collection indexes
+    await db.idempotency_keys.create_index(
+        [("user_id", 1), ("idempotency_key", 1)],
+        unique=True,
+        name="idx_idempotency_user_key_unique"
+    )
+    await db.idempotency_keys.create_index(
+        [("expires_at", 1)],
+        expireAfterSeconds=0,
+        name="idx_idempotency_ttl"
+    )
+    await db.idempotency_keys.create_index([("status", 1)], name="idx_idempotency_status")
 
     logger.info("MongoDB indexes created successfully")
 
