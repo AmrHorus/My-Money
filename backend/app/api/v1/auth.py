@@ -1,34 +1,34 @@
 """Authentication API endpoints."""
 
-from datetime import datetime, timezone
-from fastapi import APIRouter, Depends
+from datetime import UTC, datetime
+
+from fastapi import APIRouter
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
-from app.api.deps import CurrentUserDep, get_current_user
+from app.api.deps import CurrentUserDep
+from app.core.errors import (
+    AuthenticationError,
+    InvalidTokenError,
+    UserAlreadyExistsError,
+)
+from app.core.logging import get_logger
 from app.core.security import (
-    hash_password,
-    verify_password,
     create_access_token,
     create_refresh_token,
     decode_token,
+    hash_password,
     sha256_hash,
+    verify_password,
 )
-from app.core.errors import (
-    UserAlreadyExistsError,
-    AuthenticationError,
-    InvalidTokenError,
-    SessionExpiredError,
-)
-from app.db.mongodb import get_database, COLLECTION_USERS, COLLECTION_SESSIONS
+from app.db.mongodb import get_database
 from app.schemas import (
+    RefreshTokenRequest,
+    TokenResponse,
     UserCreate,
     UserLogin,
     UserResponse,
-    TokenResponse,
-    RefreshTokenRequest,
 )
-from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -50,14 +50,14 @@ async def register(
     - **full_name**: User's full name
     """
     db = get_database()
-    
+
     # Check if user already exists
     existing_user = await db.users.find_one({"email": user_data.email})
     if existing_user:
         raise UserAlreadyExistsError(user_data.email)
-    
+
     # Create user document
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     user_document = {
         "_id": f"user_{sha256_hash(f'{user_data.email}{now.isoformat()}')[:12]}",
         "email": user_data.email,
@@ -68,16 +68,16 @@ async def register(
         "created_at": now,
         "updated_at": now,
     }
-    
+
     # Insert user
     result = await db.users.insert_one(user_document)
     user_document["_id"] = result.inserted_id
-    
+
     # Log audit event
     await _log_audit_event(db, user_document["_id"], "USER_REGISTERED", {"email": user_data.email})
-    
+
     logger.info(f"New user registered: {user_data.email}")
-    
+
     return UserResponse(
         id=str(user_document["_id"]),
         email=user_document["email"],
@@ -101,51 +101,52 @@ async def login(
     - **password**: User password
     """
     db = get_database()
-    
+
     # Find user by email
     user = await db.users.find_one({"email": credentials.email})
-    
+
     if not user:
         # Use same error message to prevent user enumeration
         raise AuthenticationError("Invalid email or password")
-    
+
     # Verify password
     if not verify_password(credentials.password, user["password_hash"]):
         # Log failed login attempt
         await _log_audit_event(db, user["_id"], "LOGIN_FAILED", {"email": credentials.email})
         raise AuthenticationError("Invalid email or password")
-    
+
     # Check if user is active
     if not user.get("is_active", True):
         raise AuthenticationError("Account is deactivated")
-    
+
     # Generate tokens
     token_data = {"sub": str(user["_id"]), "email": user["email"]}
     access_token = create_access_token(token_data)
     refresh_token = create_refresh_token(token_data)
-    
+
     # Store session (hash of refresh token)
     from datetime import timedelta
+
     from app.core.config import settings
-    
-    expires_at = datetime.now(timezone.utc) + timedelta(days=settings.refresh_token_expire_days)
-    
+
+    expires_at = datetime.now(UTC) + timedelta(days=settings.refresh_token_expire_days)
+
     session_document = {
         "user_id": str(user["_id"]),
         "token_hash": sha256_hash(refresh_token.encode()),
-        "created_at": datetime.now(timezone.utc),
+        "created_at": datetime.now(UTC),
         "expires_at": expires_at,
         "revoked_at": None,
         "device_info": None,  # Could extract from request headers
     }
-    
+
     await db.sessions.insert_one(session_document)
-    
+
     # Log successful login
     await _log_audit_event(db, user["_id"], "LOGIN_SUCCESS", {"email": credentials.email})
-    
+
     logger.info(f"User logged in: {credentials.email}")
-    
+
     return TokenResponse(
         access_token=access_token,
         refresh_token=refresh_token,
@@ -167,58 +168,59 @@ async def refresh_token(
     and a new one is issued.
     """
     db = get_database()
-    
+
     # Decode refresh token
     payload = decode_token(refresh_request.refresh_token, refresh=True)
-    
+
     if payload is None:
         raise InvalidTokenError("Invalid or expired refresh token")
-    
+
     user_id = payload.get("sub")
     if not user_id:
         raise InvalidTokenError("Invalid token payload")
-    
+
     # Check if this token has been revoked
     old_token_hash = sha256_hash(refresh_request.refresh_token.encode())
     old_session = await db.sessions.find_one({
         "token_hash": old_token_hash,
         "revoked_at": {"$ne": None}
     })
-    
+
     if old_session:
         # Token was already revoked - possible replay attack
         await _log_audit_event(db, user_id, "TOKEN_REPLAY_ATTEMPT", {})
         raise InvalidTokenError("Token has been revoked")
-    
+
     # Revoke old token
     await db.sessions.update_one(
         {"token_hash": old_token_hash},
-        {"$set": {"revoked_at": datetime.now(timezone.utc)}}
+        {"$set": {"revoked_at": datetime.now(UTC)}}
     )
-    
+
     # Generate new tokens
     token_data = {"sub": user_id, "email": payload.get("email")}
     new_access_token = create_access_token(token_data)
     new_refresh_token = create_refresh_token(token_data)
-    
+
     # Store new session
     from datetime import timedelta
+
     from app.core.config import settings
-    
-    expires_at = datetime.now(timezone.utc) + timedelta(days=settings.refresh_token_expire_days)
-    
+
+    expires_at = datetime.now(UTC) + timedelta(days=settings.refresh_token_expire_days)
+
     session_document = {
         "user_id": user_id,
         "token_hash": sha256_hash(new_refresh_token.encode()),
-        "created_at": datetime.now(timezone.utc),
+        "created_at": datetime.now(UTC),
         "expires_at": expires_at,
         "revoked_at": None,
     }
-    
+
     await db.sessions.insert_one(session_document)
-    
+
     logger.info(f"Token refreshed for user: {user_id}")
-    
+
     return TokenResponse(
         access_token=new_access_token,
         refresh_token=new_refresh_token,
@@ -239,26 +241,26 @@ async def logout(
     Otherwise, all sessions for the user are revoked.
     """
     db = get_database()
-    
+
     if refresh_request and refresh_request.refresh_token:
         # Revoke specific session
         token_hash = sha256_hash(refresh_request.refresh_token.encode())
         await db.sessions.update_one(
             {"user_id": current_user.id, "token_hash": token_hash},
-            {"$set": {"revoked_at": datetime.now(timezone.utc)}}
+            {"$set": {"revoked_at": datetime.now(UTC)}}
         )
     else:
         # Revoke all sessions
         await db.sessions.update_many(
             {"user_id": current_user.id, "revoked_at": None},
-            {"$set": {"revoked_at": datetime.now(timezone.utc)}}
+            {"$set": {"revoked_at": datetime.now(UTC)}}
         )
-    
+
     # Log audit event
     await _log_audit_event(db, current_user.id, "LOGOUT", {})
-    
+
     logger.info(f"User logged out: {current_user.email}")
-    
+
     return {"success": True, "message": "Logged out successfully"}
 
 
@@ -268,12 +270,12 @@ async def get_current_user_info(
 ):
     """Get current authenticated user information."""
     db = get_database()
-    
+
     user = await db.users.find_one({"_id": current_user.id})
-    
+
     if not user:
         raise AuthenticationError("User not found")
-    
+
     return UserResponse(
         id=str(user["_id"]),
         email=user["email"],
@@ -290,7 +292,7 @@ async def _log_audit_event(db, user_id: str, event_type: str, details: dict):
         "user_id": str(user_id),
         "event_type": event_type,
         "details": details,
-        "timestamp": datetime.now(timezone.utc),
+        "timestamp": datetime.now(UTC),
         "ip_address": None,  # Could extract from request
     }
     await db.audit_logs.insert_one(audit_document)

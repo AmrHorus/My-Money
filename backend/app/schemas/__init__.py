@@ -1,10 +1,10 @@
 """Pydantic schemas for API request/response validation."""
 
-from datetime import datetime, date
-from typing import Optional, List, Literal
-from pydantic import BaseModel, Field, field_validator, ConfigDict
+from datetime import date, datetime
 from enum import Enum
+from typing import List, Literal, Optional
 
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 # =============================================================================
 # Enums
@@ -52,10 +52,10 @@ class CurrencyCode(str, Enum):
 
 class MoneySchema(BaseModel):
     """Money value in minor units to avoid floating-point issues."""
-    
+
     amount_minor_units: int = Field(..., description="Amount in minor units (e.g., cents)")
     currency_code: str = Field(..., description="ISO 4217 currency code")
-    
+
     @field_validator("amount_minor_units")
     @classmethod
     def validate_amount(cls, v: int) -> int:
@@ -65,7 +65,7 @@ class MoneySchema(BaseModel):
         if v > 10_000_000_000:  # 100 million in minor units
             raise ValueError("Amount too large")
         return v
-    
+
     @field_validator("currency_code")
     @classmethod
     def validate_currency(cls, v: str) -> str:
@@ -83,11 +83,11 @@ class MoneySchema(BaseModel):
 
 class UserCreate(BaseModel):
     """Schema for user registration."""
-    
+
     email: str = Field(..., min_length=3, max_length=255, description="User email address")
     password: str = Field(..., min_length=8, max_length=128, description="User password")
     full_name: str = Field(..., min_length=1, max_length=255, description="User full name")
-    
+
     @field_validator("email")
     @classmethod
     def validate_email(cls, v: str) -> str:
@@ -95,7 +95,7 @@ class UserCreate(BaseModel):
         if "@" not in v or "." not in v.split("@")[-1]:
             raise ValueError("Invalid email format")
         return v.lower().strip()
-    
+
     @field_validator("password")
     @classmethod
     def validate_password(cls, v: str) -> str:
@@ -113,10 +113,10 @@ class UserCreate(BaseModel):
 
 class UserLogin(BaseModel):
     """Schema for user login."""
-    
+
     email: str = Field(..., min_length=3, max_length=255, description="User email address")
     password: str = Field(..., min_length=1, max_length=128, description="User password")
-    
+
     @field_validator("email")
     @classmethod
     def validate_email(cls, v: str) -> str:
@@ -126,9 +126,9 @@ class UserLogin(BaseModel):
 
 class UserResponse(BaseModel):
     """Schema for user response (excludes sensitive data)."""
-    
+
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: str
     email: str
     full_name: str
@@ -139,7 +139,7 @@ class UserResponse(BaseModel):
 
 class TokenResponse(BaseModel):
     """Schema for authentication token response."""
-    
+
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
@@ -148,7 +148,7 @@ class TokenResponse(BaseModel):
 
 class RefreshTokenRequest(BaseModel):
     """Schema for refresh token request."""
-    
+
     refresh_token: str = Field(..., description="Refresh token")
 
 
@@ -159,16 +159,16 @@ class RefreshTokenRequest(BaseModel):
 
 class TransactionCreate(BaseModel):
     """Schema for creating a transaction."""
-    
+
     type: TransactionType = Field(..., description="Transaction type")
     amount_minor_units: int = Field(..., gt=0, description="Amount in minor units")
     currency_code: str = Field(default="SAR", description="Currency code")
-    category_id: Optional[str] = Field(None, description="Category ID")
-    account_id: Optional[str] = Field(None, description="Source account ID")
-    destination_account_id: Optional[str] = Field(None, description="Destination account ID (for transfers)")
+    category_id: str | None = Field(None, description="Category ID")
+    account_id: str | None = Field(None, description="Source account ID")
+    destination_account_id: str | None = Field(None, description="Destination account ID (for transfers)")
     date: date = Field(..., description="Transaction date")
-    note: Optional[str] = Field(None, max_length=1000, description="Optional note")
-    
+    note: str | None = Field(None, max_length=1000, description="Optional note")
+
     @field_validator("amount_minor_units")
     @classmethod
     def validate_amount(cls, v: int) -> int:
@@ -182,36 +182,36 @@ class TransactionCreate(BaseModel):
 
 class TransactionUpdate(BaseModel):
     """Schema for updating a transaction."""
-    
-    amount_minor_units: Optional[int] = Field(None, gt=0, description="Amount in minor units")
-    category_id: Optional[str] = Field(None, description="Category ID")
-    account_id: Optional[str] = Field(None, description="Source account ID")
-    destination_account_id: Optional[str] = Field(None, description="Destination account ID")
-    date: Optional[date] = Field(None, description="Transaction date")
-    note: Optional[str] = Field(None, max_length=1000, description="Optional note")
+
+    amount_minor_units: int | None = Field(None, gt=0, description="Amount in minor units")
+    category_id: str | None = Field(None, description="Category ID")
+    account_id: str | None = Field(None, description="Source account ID")
+    destination_account_id: str | None = Field(None, description="Destination account ID")
+    date: date | None = Field(None, description="Transaction date")
+    note: str | None = Field(None, max_length=1000, description="Optional note")
 
 
 class TransactionResponse(BaseModel):
     """Schema for transaction response."""
-    
+
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: str
     user_id: str
     type: TransactionType
     amount_minor_units: int
     currency_code: str
-    category_id: Optional[str]
-    account_id: Optional[str]
-    destination_account_id: Optional[str]
+    category_id: str | None
+    account_id: str | None
+    destination_account_id: str | None
     date: date
-    note: Optional[str]
+    note: str | None
     is_recurring: bool
-    recurring_rule_id: Optional[str]
+    recurring_rule_id: str | None
     status: TransactionStatus
     created_at: datetime
     updated_at: datetime
-    deleted_at: Optional[datetime] = None
+    deleted_at: datetime | None = None
 
 
 # =============================================================================
@@ -221,36 +221,36 @@ class TransactionResponse(BaseModel):
 
 class AccountCreate(BaseModel):
     """Schema for creating an account."""
-    
+
     name: str = Field(..., min_length=1, max_length=100, description="Account name")
     account_type: str = Field(default="cash", description="Account type (cash, bank, wallet, credit_card, savings)")
     currency_code: str = Field(default="SAR", description="Currency code")
     initial_balance_minor_units: int = Field(default=0, description="Initial balance in minor units")
-    description: Optional[str] = Field(None, max_length=500, description="Optional description")
+    description: str | None = Field(None, max_length=500, description="Optional description")
 
 
 class AccountUpdate(BaseModel):
     """Schema for updating an account."""
-    
-    name: Optional[str] = Field(None, min_length=1, max_length=100)
-    account_type: Optional[str] = Field(None)
-    currency_code: Optional[str] = Field(None)
-    description: Optional[str] = Field(None, max_length=500)
-    is_active: Optional[bool] = Field(None)
+
+    name: str | None = Field(None, min_length=1, max_length=100)
+    account_type: str | None = Field(None)
+    currency_code: str | None = Field(None)
+    description: str | None = Field(None, max_length=500)
+    is_active: bool | None = Field(None)
 
 
 class AccountResponse(BaseModel):
     """Schema for account response."""
-    
+
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: str
     user_id: str
     name: str
     account_type: str
     currency_code: str
     current_balance_minor_units: int
-    description: Optional[str]
+    description: str | None
     is_active: bool
     created_at: datetime
     updated_at: datetime
@@ -263,14 +263,14 @@ class AccountResponse(BaseModel):
 
 class BudgetCreate(BaseModel):
     """Schema for creating a budget."""
-    
+
     name: str = Field(..., min_length=1, max_length=100, description="Budget name")
     amount_minor_units: int = Field(..., gt=0, description="Budget amount in minor units")
     currency_code: str = Field(default="SAR", description="Currency code")
-    category_id: Optional[str] = Field(None, description="Category ID (None for overall budget)")
+    category_id: str | None = Field(None, description="Category ID (None for overall budget)")
     period_start: date = Field(..., description="Budget period start date")
     period_end: date = Field(..., description="Budget period end date")
-    
+
     @field_validator("period_end")
     @classmethod
     def validate_period(cls, v: date, info) -> date:
@@ -281,15 +281,15 @@ class BudgetCreate(BaseModel):
 
 class BudgetResponse(BaseModel):
     """Schema for budget response."""
-    
+
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: str
     user_id: str
     name: str
     amount_minor_units: int
     currency_code: str
-    category_id: Optional[str]
+    category_id: str | None
     spent_amount_minor_units: int
     remaining_amount_minor_units: int
     percentage_used: float
@@ -307,31 +307,31 @@ class BudgetResponse(BaseModel):
 
 class SavingsGoalCreate(BaseModel):
     """Schema for creating a savings goal."""
-    
+
     name: str = Field(..., min_length=1, max_length=100, description="Goal name")
     target_amount_minor_units: int = Field(..., gt=0, description="Target amount in minor units")
     currency_code: str = Field(default="SAR", description="Currency code")
     current_amount_minor_units: int = Field(default=0, ge=0, description="Current saved amount")
-    deadline: Optional[date] = Field(None, description="Optional deadline")
-    description: Optional[str] = Field(None, max_length=500, description="Optional description")
+    deadline: date | None = Field(None, description="Optional deadline")
+    description: str | None = Field(None, max_length=500, description="Optional description")
 
 
 class SavingsGoalUpdate(BaseModel):
     """Schema for updating a savings goal."""
-    
-    name: Optional[str] = Field(None, min_length=1, max_length=100)
-    target_amount_minor_units: Optional[int] = Field(None, gt=0)
-    current_amount_minor_units: Optional[int] = Field(None, ge=0)
-    deadline: Optional[date] = Field(None)
-    description: Optional[str] = Field(None, max_length=500)
-    is_completed: Optional[bool] = Field(None)
+
+    name: str | None = Field(None, min_length=1, max_length=100)
+    target_amount_minor_units: int | None = Field(None, gt=0)
+    current_amount_minor_units: int | None = Field(None, ge=0)
+    deadline: date | None = Field(None)
+    description: str | None = Field(None, max_length=500)
+    is_completed: bool | None = Field(None)
 
 
 class SavingsGoalResponse(BaseModel):
     """Schema for savings goal response."""
-    
+
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: str
     user_id: str
     name: str
@@ -340,8 +340,8 @@ class SavingsGoalResponse(BaseModel):
     current_amount_minor_units: int
     progress_percentage: float
     remaining_amount_minor_units: int
-    deadline: Optional[date]
-    description: Optional[str]
+    deadline: date | None
+    description: str | None
     is_completed: bool
     created_at: datetime
     updated_at: datetime
@@ -354,34 +354,34 @@ class SavingsGoalResponse(BaseModel):
 
 class RecurringExpenseCreate(BaseModel):
     """Schema for creating a recurring expense."""
-    
+
     name: str = Field(..., min_length=1, max_length=100, description="Recurring expense name")
     amount_minor_units: int = Field(..., gt=0, description="Amount in minor units")
     currency_code: str = Field(default="SAR", description="Currency code")
-    category_id: Optional[str] = Field(None, description="Category ID")
-    account_id: Optional[str] = Field(None, description="Account ID")
+    category_id: str | None = Field(None, description="Category ID")
+    account_id: str | None = Field(None, description="Account ID")
     frequency: RecurringFrequency = Field(..., description="Recurrence frequency")
     next_due_date: date = Field(..., description="Next due date")
-    note: Optional[str] = Field(None, max_length=500, description="Optional note")
+    note: str | None = Field(None, max_length=500, description="Optional note")
     is_active: bool = Field(default=True, description="Whether recurrence is active")
 
 
 class RecurringExpenseResponse(BaseModel):
     """Schema for recurring expense response."""
-    
+
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: str
     user_id: str
     name: str
     amount_minor_units: int
     currency_code: str
-    category_id: Optional[str]
-    account_id: Optional[str]
+    category_id: str | None
+    account_id: str | None
     frequency: RecurringFrequency
     next_due_date: date
-    last_occurrence_date: Optional[date]
-    note: Optional[str]
+    last_occurrence_date: date | None
+    note: str | None
     is_active: bool
     created_at: datetime
     updated_at: datetime
@@ -394,7 +394,7 @@ class RecurringExpenseResponse(BaseModel):
 
 class FinancialSummarySchema(BaseModel):
     """Schema for financial summary."""
-    
+
     total_income_minor_units: int
     total_expenses_minor_units: int
     fixed_expenses_minor_units: int
@@ -407,8 +407,8 @@ class FinancialSummarySchema(BaseModel):
 
 class CategorySpendingSchema(BaseModel):
     """Schema for category spending breakdown."""
-    
-    category_id: Optional[str]
+
+    category_id: str | None
     category_name: str
     amount_minor_units: int
     percentage: float
@@ -417,7 +417,7 @@ class CategorySpendingSchema(BaseModel):
 
 class MonthlyTrendSchema(BaseModel):
     """Schema for monthly trend data point."""
-    
+
     month: str  # YYYY-MM format
     income_minor_units: int
     expenses_minor_units: int
@@ -431,15 +431,15 @@ class MonthlyTrendSchema(BaseModel):
 
 class PaginationParams(BaseModel):
     """Schema for pagination parameters."""
-    
+
     page: int = Field(default=1, ge=1, description="Page number")
     page_size: int = Field(default=20, ge=1, le=100, description="Items per page")
 
 
 class PaginatedResponse(BaseModel):
     """Generic paginated response wrapper."""
-    
-    items: List
+
+    items: list
     total: int
     page: int
     page_size: int

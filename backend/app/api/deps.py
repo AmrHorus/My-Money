@@ -1,12 +1,11 @@
 """API dependencies for authentication and authorization."""
 
-from typing import Optional, Annotated
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from typing import Annotated
+
+from fastapi import Depends
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
-from app.core.security import decode_token, validate_token_claims
-from app.db.mongodb import get_database, COLLECTION_USERS, COLLECTION_SESSIONS
 from app.core.errors import (
     AuthenticationError,
     InvalidTokenError,
@@ -14,6 +13,8 @@ from app.core.errors import (
     UserNotFoundError,
 )
 from app.core.logging import get_logger
+from app.core.security import decode_token, validate_token_claims
+from app.db.mongodb import get_database
 
 logger = get_logger(__name__)
 
@@ -23,12 +24,12 @@ security = HTTPBearer(auto_error=False)
 
 class CurrentUser:
     """Represents the currently authenticated user."""
-    
+
     def __init__(self, user_id: str, email: str, full_name: str):
         self.user_id = user_id
         self.email = email
         self.full_name = full_name
-    
+
     @property
     def id(self) -> str:
         """Get user ID."""
@@ -36,7 +37,7 @@ class CurrentUser:
 
 
 async def get_current_user(
-    credentials: Annotated[Optional[HTTPAuthorizationCredentials], Depends(security)],
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)],
     db: Annotated[AsyncIOMotorDatabase, Depends(get_database)],
 ) -> CurrentUser:
     """
@@ -63,33 +64,33 @@ async def get_current_user(
     """
     if credentials is None:
         raise AuthenticationError("No authentication credentials provided")
-    
+
     token = credentials.credentials
-    
+
     # Decode and validate access token
     payload = decode_token(token, refresh=False)
-    
+
     if payload is None:
         raise InvalidTokenError()
-    
+
     # Validate token claims
     if not validate_token_claims(payload):
         raise InvalidTokenError("Invalid token claims")
-    
+
     # Get user ID from token subject
     user_id = payload.get("sub")
     if not user_id:
         raise InvalidTokenError("Token missing user ID")
-    
+
     # Check if session/revoked
     await _check_session_revoked(db, user_id, token)
-    
+
     # Retrieve user from database
     user = await db.users.find_one({"_id": user_id})
-    
+
     if user is None:
         raise UserNotFoundError(user_id)
-    
+
     return CurrentUser(
         user_id=user["_id"],
         email=user["email"],
@@ -113,22 +114,22 @@ async def _check_session_revoked(
     # Hash the token to look up in sessions
     from app.core.security import sha256_hash
     token_hash = sha256_hash(token.encode())
-    
+
     # Check for revoked session
     session = await db.sessions.find_one({
         "user_id": user_id,
         "token_hash": token_hash,
         "revoked_at": {"$ne": None}
     })
-    
+
     if session:
         raise TokenRevokedError()
 
 
 async def get_optional_user(
-    credentials: Annotated[Optional[HTTPAuthorizationCredentials], Depends(security)],
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)],
     db: Annotated[AsyncIOMotorDatabase, Depends(get_database)],
-) -> Optional[CurrentUser]:
+) -> CurrentUser | None:
     """
     Get the current user if authenticated, otherwise return None.
     
@@ -149,7 +150,7 @@ async def get_optional_user(
 
 # Type alias for dependency injection
 CurrentUserDep = Annotated[CurrentUser, Depends(get_current_user)]
-OptionalUserDep = Annotated[Optional[CurrentUser], Depends(get_optional_user)]
+OptionalUserDep = Annotated[CurrentUser | None, Depends(get_optional_user)]
 
 
 async def verify_user_ownership(
@@ -170,8 +171,8 @@ async def verify_user_ownership(
         AuthorizationError: If user doesn't own the resource
     """
     from app.core.errors import AuthorizationError
-    
+
     if resource_user_id != current_user.id:
         raise AuthorizationError("You do not have permission to access this resource")
-    
+
     return True

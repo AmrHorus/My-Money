@@ -2,9 +2,15 @@
 //! 
 //! This module provides cryptographic utilities and security functions
 //! for the Flutter/Dart application through FFI.
+//!
+//! SECURITY NOTES:
+//! - All sensitive data structures implement Zeroize
+//! - Sensitive buffers are zeroized on drop
+//! - Cryptographic operations use audited crates only
+//! - FFI boundaries validate all inputs rigorously
 
 use ffi_support::{define_string_function, ByteBuffer};
-use zeroize::Zeroize;
+use zeroize::{Zeroize, ZeroizeOnDrop};
 use rand::RngCore;
 use rand_chacha::ChaCha20Rng;
 use rand::SeedableRng;
@@ -22,10 +28,17 @@ type HmacSha256 = Hmac<Sha256>;
 // Data Structures
 // ============================================================================
 
-#[derive(Serialize, Deserialize, Zeroize)]
+/// Secure buffer that automatically zeroes sensitive data on drop.
+/// 
+/// SECURITY: This struct implements ZeroizeOnDrop to ensure sensitive
+/// data is cleared from memory when the struct is dropped.
+/// 
+/// LIMITATIONS: While we zeroize our own copies, we cannot guarantee
+/// that the compiler/runtime/OS hasn't created additional copies.
+/// This provides defense-in-depth, not absolute guarantees.
+#[derive(ZeroizeOnDrop)]
 pub struct SecureBuffer {
-    #[zeroize(skip)]
-    pub data: Vec<u8>,
+    data: Vec<u8>,
 }
 
 impl SecureBuffer {
@@ -34,7 +47,20 @@ impl SecureBuffer {
     }
 
     pub fn into_bytes(self) -> Vec<u8> {
-        self.data
+        // Clone to prevent accidental zeroization of returned data
+        // Caller is responsible for secure handling
+        self.data.clone()
+    }
+    
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.data
+    }
+}
+
+// Implement Drop to explicitly zeroize before deallocation
+impl Drop for SecureBuffer {
+    fn drop(&mut self) {
+        self.data.zeroize();
     }
 }
 

@@ -1,10 +1,9 @@
 """Application configuration with security validation."""
 
 import os
-import secrets
-from typing import List
-from pydantic_settings import BaseSettings
+
 from pydantic import Field, field_validator
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
@@ -60,7 +59,7 @@ class Settings(BaseSettings):
         return v
 
     @property
-    def parsed_cors_origins(self) -> List[str]:
+    def parsed_cors_origins(self) -> list[str]:
         """Parse CORS origins from comma-separated string."""
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
 

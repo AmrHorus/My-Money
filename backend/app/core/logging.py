@@ -3,6 +3,7 @@
 import logging
 import sys
 from typing import Any
+
 from pythonjsonlogger import jsonlogger
 
 
@@ -17,15 +18,15 @@ class CustomJsonFormatter(jsonlogger.JsonFormatter):
     ) -> None:
         """Add custom fields to log records."""
         super().add_fields(log_record, record, message)
-        
+
         # Add standard fields
         log_record["level"] = record.levelname
         log_record["logger"] = record.name
-        
+
         # Add request ID if present
         if hasattr(record, "request_id"):
             log_record["request_id"] = record.request_id
-        
+
         # Add user ID if present (sanitized)
         if hasattr(record, "user_id"):
             log_record["user_id"] = record.user_id
@@ -40,18 +41,18 @@ def setup_logging(level: str = "INFO", json_format: bool = False) -> None:
         json_format: Use JSON format for logs (recommended for production)
     """
     log_level = getattr(logging, level.upper(), logging.INFO)
-    
+
     # Get root logger
     root_logger = logging.getLogger()
     root_logger.setLevel(log_level)
-    
+
     # Remove existing handlers
     root_logger.handlers.clear()
-    
+
     # Create console handler
     handler = logging.StreamHandler(sys.stdout)
     handler.setLevel(log_level)
-    
+
     if json_format:
         # JSON format for production
         formatter = CustomJsonFormatter(
@@ -63,10 +64,10 @@ def setup_logging(level: str = "INFO", json_format: bool = False) -> None:
             "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
             datefmt="%Y-%m-%d %H:%M:%S",
         )
-    
+
     handler.setFormatter(formatter)
     root_logger.addHandler(handler)
-    
+
     # Set third-party loggers to WARNING to reduce noise
     logging.getLogger("uvicorn").setLevel(logging.WARNING)
     logging.getLogger("pymongo").setLevel(logging.WARNING)

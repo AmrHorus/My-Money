@@ -1,14 +1,25 @@
 """My-Money Backend API - Main Application Entry Point."""
 
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import SlowAPI, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
+from app.api.v1 import (
+    accounts,
+    auth,
+    budgets,
+    recurring,
+    savings,
+    statistics,
+    sync,
+    transactions,
+    users,
+)
 from app.core.config import settings
-from app.core.logging import setup_logging, get_logger
 from app.core.errors import (
     AppException,
     AuthenticationError,
@@ -16,8 +27,8 @@ from app.core.errors import (
     NotFoundError,
     ValidationError,
 )
-from app.db.mongodb import connect_to_mongodb, disconnect_from_mongodb, create_indexes
-from app.api.v1 import auth, users, transactions, accounts, budgets, savings, recurring, statistics, sync
+from app.core.logging import get_logger, setup_logging
+from app.db.mongodb import connect_to_mongodb, create_indexes, disconnect_from_mongodb
 
 logger = get_logger(__name__)
 
@@ -27,25 +38,25 @@ async def lifespan(app: FastAPI):
     """Application lifespan manager for startup/shutdown events."""
     # Startup
     logger.info("Starting My-Money Backend API...")
-    
+
     # Setup logging
     setup_logging(
         level=settings.log_level,
         json_format=settings.is_production
     )
-    
+
     # Connect to MongoDB
     await connect_to_mongodb()
-    
+
     # Create indexes
     from app.db.mongodb import get_database
     db = get_database()
     await create_indexes(db)
-    
+
     logger.info("My-Money Backend API started successfully")
-    
+
     yield
-    
+
     # Shutdown
     logger.info("Shutting down My-Money Backend API...")
     await disconnect_from_mongodb()
@@ -88,17 +99,17 @@ app.add_middleware(
 async def add_security_headers(request: Request, call_next):
     """Add security headers to all responses."""
     response = await call_next(request)
-    
+
     # Security headers
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
-    
+
     if settings.is_production:
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-    
+
     return response
 
 
@@ -106,7 +117,7 @@ async def add_security_headers(request: Request, call_next):
 @app.exception_handler(AppException)
 async def app_exception_handler(request: Request, exc: AppException):
     """Handle application exceptions."""
-    from app.core.errors import APIErrorResponse, APIError
+    from app.core.errors import APIError, APIErrorResponse
     return APIErrorResponse(
         error=APIError(
             code=exc.code,
@@ -119,7 +130,7 @@ async def app_exception_handler(request: Request, exc: AppException):
 @app.exception_handler(AuthenticationError)
 async def auth_error_handler(request: Request, exc: AuthenticationError):
     """Handle authentication errors."""
-    from app.core.errors import APIErrorResponse, APIError
+    from app.core.errors import APIError, APIErrorResponse
     return APIErrorResponse(
         error=APIError(
             code=exc.code,
@@ -131,7 +142,7 @@ async def auth_error_handler(request: Request, exc: AuthenticationError):
 @app.exception_handler(AuthorizationError)
 async def authz_error_handler(request: Request, exc: AuthorizationError):
     """Handle authorization errors."""
-    from app.core.errors import APIErrorResponse, APIError
+    from app.core.errors import APIError, APIErrorResponse
     return APIErrorResponse(
         error=APIError(
             code=exc.code,
@@ -143,7 +154,7 @@ async def authz_error_handler(request: Request, exc: AuthorizationError):
 @app.exception_handler(NotFoundError)
 async def not_found_handler(request: Request, exc: NotFoundError):
     """Handle not found errors."""
-    from app.core.errors import APIErrorResponse, APIError
+    from app.core.errors import APIError, APIErrorResponse
     return APIErrorResponse(
         error=APIError(
             code=exc.code,
@@ -155,7 +166,7 @@ async def not_found_handler(request: Request, exc: NotFoundError):
 @app.exception_handler(ValidationError)
 async def validation_error_handler(request: Request, exc: ValidationError):
     """Handle validation errors."""
-    from app.core.errors import APIErrorResponse, APIError
+    from app.core.errors import APIError, APIErrorResponse
     return APIErrorResponse(
         error=APIError(
             code=exc.code,
@@ -188,12 +199,12 @@ async def health_check():
 async def readiness_check():
     """Readiness check that verifies dependencies."""
     from app.db.mongodb import verify_connection
-    
+
     db_healthy = await verify_connection()
-    
+
     if not db_healthy:
         return {"status": "unhealthy", "details": {"mongodb": "disconnected"}}
-    
+
     return {
         "status": "ready",
         "details": {

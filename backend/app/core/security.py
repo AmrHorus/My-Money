@@ -3,12 +3,13 @@
 import hashlib
 import hmac
 import secrets
-from datetime import datetime, timedelta, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime, timedelta
+from typing import Any
+
 from argon2 import PasswordHasher, Type
-from argon2.exceptions import VerifyMismatchError, InvalidHash
-from jose import jwt, JWTError
+from argon2.exceptions import InvalidHash, VerifyMismatchError
 from cryptography.fernet import Fernet
+from jose import JWTError, jwt
 
 from app.core.config import settings
 from app.core.logging import get_logger
@@ -26,7 +27,7 @@ ARGON2_PARALLELISM = 4  # Parallel threads
 ARGON2_HASH_LEN = 32  # Output hash length
 ARGON2_SALT_LEN = 16  # Salt length
 
-_password_hasher: Optional[PasswordHasher] = None
+_password_hasher: PasswordHasher | None = None
 
 
 def get_password_hasher() -> PasswordHasher:
@@ -101,7 +102,7 @@ def needs_rehash(hashed_password: str) -> bool:
 
 def create_access_token(
     data: dict[str, Any],
-    expires_delta: Optional[timedelta] = None,
+    expires_delta: timedelta | None = None,
 ) -> str:
     """
     Create a JWT access token.
@@ -114,32 +115,32 @@ def create_access_token(
         Encoded JWT token string
     """
     to_encode = data.copy()
-    
+
     if expires_delta:
-        expire = datetime.now(timezone.utc) + expires_delta
+        expire = datetime.now(UTC) + expires_delta
     else:
-        expire = datetime.now(timezone.utc) + timedelta(
+        expire = datetime.now(UTC) + timedelta(
             minutes=settings.access_token_expire_minutes
         )
-    
+
     to_encode.update({
         "exp": expire,
-        "iat": datetime.now(timezone.utc),
+        "iat": datetime.now(UTC),
         "type": "access",
     })
-    
+
     encoded_jwt = jwt.encode(
         to_encode,
         settings.jwt_secret,
         algorithm="HS256",
     )
-    
+
     return encoded_jwt
 
 
 def create_refresh_token(
     data: dict[str, Any],
-    expires_delta: Optional[timedelta] = None,
+    expires_delta: timedelta | None = None,
 ) -> str:
     """
     Create a JWT refresh token.
@@ -152,30 +153,30 @@ def create_refresh_token(
         Encoded JWT refresh token string
     """
     to_encode = data.copy()
-    
+
     if expires_delta:
-        expire = datetime.now(timezone.utc) + expires_delta
+        expire = datetime.now(UTC) + expires_delta
     else:
-        expire = datetime.now(timezone.utc) + timedelta(
+        expire = datetime.now(UTC) + timedelta(
             days=settings.refresh_token_expire_days
         )
-    
+
     to_encode.update({
         "exp": expire,
-        "iat": datetime.now(timezone.utc),
+        "iat": datetime.now(UTC),
         "type": "refresh",
     })
-    
+
     encoded_jwt = jwt.encode(
         to_encode,
         settings.jwt_refresh_secret,
         algorithm="HS256",
     )
-    
+
     return encoded_jwt
 
 
-def decode_token(token: str, refresh: bool = False) -> Optional[dict[str, Any]]:
+def decode_token(token: str, refresh: bool = False) -> dict[str, Any] | None:
     """
     Decode and validate a JWT token.
     
@@ -188,7 +189,7 @@ def decode_token(token: str, refresh: bool = False) -> Optional[dict[str, Any]]:
     """
     secret = settings.jwt_refresh_secret if refresh else settings.jwt_secret
     expected_type = "refresh" if refresh else "access"
-    
+
     try:
         payload = jwt.decode(
             token,
@@ -201,14 +202,14 @@ def decode_token(token: str, refresh: bool = False) -> Optional[dict[str, Any]]:
                 "require": ["exp", "iat", "type"],
             },
         )
-        
+
         # Validate token type
         if payload.get("type") != expected_type:
             logger.warning(f"Token type mismatch: expected {expected_type}, got {payload.get('type')}")
             return None
-        
+
         return payload
-        
+
     except JWTError as e:
         logger.debug(f"Token decoding failed: {e}")
         return None
@@ -228,14 +229,14 @@ def validate_token_claims(payload: dict[str, Any]) -> bool:
     user_id = payload.get("sub")
     if not user_id or not isinstance(user_id, str):
         return False
-    
+
     # Ensure no dangerous claims are present
     dangerous_claims = ["role", "permissions", "is_admin", "user_id"]
     for claim in dangerous_claims:
         if claim in payload and claim != "sub":
             logger.warning(f"Potentially dangerous claim found: {claim}")
             # Don't reject, but log for monitoring
-    
+
     return True
 
 
@@ -323,8 +324,8 @@ class EncryptionService:
     Note: For production use with Rust integration, consider using
     AES-256-GCM through the Rust security layer.
     """
-    
-    def __init__(self, key: Optional[bytes] = None):
+
+    def __init__(self, key: bytes | None = None):
         """
         Initialize encryption service.
         
@@ -338,9 +339,9 @@ class EncryptionService:
             logger.warning("Generated new encryption key - NOT suitable for production!")
         else:
             self._key = key
-        
+
         self._cipher = Fernet(self._key)
-    
+
     @classmethod
     def from_settings(cls) -> "EncryptionService":
         """Create encryption service from settings."""
@@ -351,12 +352,12 @@ class EncryptionService:
         else:
             key = None
         return cls(key)
-    
+
     @property
     def key(self) -> bytes:
         """Get the encryption key (handle with care!)."""
         return self._key
-    
+
     def encrypt(self, plaintext: bytes) -> bytes:
         """
         Encrypt plaintext data.
@@ -368,7 +369,7 @@ class EncryptionService:
             Encrypted data (includes timestamp and HMAC)
         """
         return self._cipher.encrypt(plaintext)
-    
+
     def decrypt(self, ciphertext: bytes) -> bytes:
         """
         Decrypt ciphertext data.
@@ -383,7 +384,7 @@ class EncryptionService:
             cryptography.fernet.InvalidToken: If decryption fails
         """
         return self._cipher.decrypt(ciphertext)
-    
+
     def encrypt_string(self, plaintext: str) -> str:
         """
         Encrypt a string and return base64-encoded result.
@@ -396,7 +397,7 @@ class EncryptionService:
         """
         encrypted = self.encrypt(plaintext.encode("utf-8"))
         return encrypted.hex()
-    
+
     def decrypt_string(self, ciphertext_hex: str) -> str:
         """
         Decrypt a hex-encoded encrypted string.
