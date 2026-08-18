@@ -1,6 +1,20 @@
 ```
-# Miscellaneous
-.metadata
+# Flutter/Dart
+.dart_tool/
+.packages
+.pub/
+build/
+*.g.dart
+*.freezed.dart
+
+# Rust
+target/
+Cargo.lock
+
+# Dependencies
+**/node_modules/
+**/.venv/
+**/venv/
 
 # Logs
 *.log
@@ -8,96 +22,5 @@
 # Environment variables
 .env
 .env.local
-*.env.*
-
-# Dependencies
-.dart_tool/
-.packages
-.pub/
-pubspec.lock
-
-# iOS
-ios/Pods/
-ios/Podfile.lock
-ios/build/
-*.xcodeproj
-*.xcworkspace
-*.xcworkspacedata
-*.xccheckout
-*.moved-aside
-*.xcuserstate
-*.xcscmblueprint
-*.mode1v3
-*.mode2v3
-*.perspectivev3
-*.pbxuser
-*.xcuserdatad
-*.xcdebugger
-*.xcarchive
-*.dSYM
-*.dSYM.zip
-
-# Android
-android/app/build/
-android/.gradle/
-android/gradle/
-android/build/
-android/local.properties
-*.keystore
-*.jks
-
-# Flutter
-flutter/build/
-flutter/.dart_tool/
-flutter/.pub/
-flutter/packages/
-
-# Linux
-linux/build/
-
-# macOS
-macos/Pods/
-macos/Flutter/ephemeral/
-macos/build/
-*.xcworkspace
-*.xcworkspacedata
-*.xccheckout
-*.moved-aside
-*.xcuserstate
-*.xcscmblueplot
-*.mode1v3
-*.mode2v3
-*.perspectivev3
-*.pbxuser
-*.xcuserdatad
-*.xcdebugger
-*.xcarchive
-*.dSYM
-*.dSYM.zip
-
-# Windows
-windows/Build/
-windows/build/
-windows/runner/Release/
-windows/runner/Debug/
-
-# Web
-web/build/
-
-# Testing
-coverage/
-*.coverage
-
-# IDEs
-.vscode/
-.idea/
-*.swp
-*.swo
-*.tmp
-
-# OS generated
-.DS_Store
-Thumbs.db
-ehthumbs.db
-Icon?
+.env.*
 ```
