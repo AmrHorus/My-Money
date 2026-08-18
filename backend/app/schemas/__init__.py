@@ -165,8 +165,8 @@ class TransactionCreate(BaseModel):
     currency_code: str = Field(default="SAR", description="Currency code")
     category_id: str | None = Field(None, description="Category ID")
     account_id: str | None = Field(None, description="Source account ID")
-    destination_account_id: str | None = Field(None, description="Destination account ID (for transfers)")
-    date: date = Field(..., description="Transaction date")
+    dest_account_id: str | None = Field(None, description="Destination account ID (for transfers)")
+    transaction_date: date = Field(..., description="Transaction date")
     note: str | None = Field(None, max_length=1000, description="Optional note")
 
     @field_validator("amount_minor_units")
@@ -186,8 +186,8 @@ class TransactionUpdate(BaseModel):
     amount_minor_units: int | None = Field(None, gt=0, description="Amount in minor units")
     category_id: str | None = Field(None, description="Category ID")
     account_id: str | None = Field(None, description="Source account ID")
-    destination_account_id: str | None = Field(None, description="Destination account ID")
-    date: date | None = Field(None, description="Transaction date")
+    dest_account_id: str | None = Field(None, description="Destination account ID")
+    transaction_date: date | None = Field(None, description="Transaction date")
     note: str | None = Field(None, max_length=1000, description="Optional note")
 
 

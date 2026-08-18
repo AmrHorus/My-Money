@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from slowapi import SlowAPI, _rate_limit_exceeded_handler
+from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
@@ -28,7 +28,8 @@ from app.core.errors import (
     ValidationError,
 )
 from app.core.logging import get_logger, setup_logging
-from app.db.mongodb import connect_to_mongodb, create_indexes, disconnect_from_mongodb
+from app.db.indexes import create_indexes
+from app.db.mongodb import connect_to_mongodb, disconnect_from_mongodb
 
 logger = get_logger(__name__)
 
@@ -75,7 +76,7 @@ app = FastAPI(
 )
 
 # Setup rate limiter
-rate_limiter = SlowAPI(
+rate_limiter = Limiter(
     key_func=get_remote_address,
     default_limits=[f"{settings.rate_limit_per_minute} per minute"],
 )
