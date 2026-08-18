@@ -1,1 +1,3 @@
-Nothing should be ignored since the changes only include source files (.py) without any build artifacts, dependencies, or temporary files.
+(docs/feature-inventory.md is a documentation file, which is a source file, so no need to add to .gitignore)
+
+# No changes needed - only documentation file was added
