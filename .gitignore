@@ -1,103 +1,39 @@
 ```
-# Miscellaneous
-.metadata
+# Dependencies
+backend/venv/
+backend/.venv/
+backend/__pycache__/
+backend/.pytest_cache/
+backend/.mypy_cache/
+node_modules/
 
-# Logs
-*.log
+# Build artifacts
+backend/dist/
+backend/build/
+flutter_app/build/
+rust-security/target/
 
-# Environment variables
+# Environment
 .env
 .env.local
 *.env.*
 
-# Dependencies
-.dart_tool/
-.packages
-.pub/
-pubspec.lock
-
-# iOS
-ios/Pods/
-ios/Podfile.lock
-ios/build/
-*.xcodeproj
-*.xcworkspace
-*.xcworkspacedata
-*.xccheckout
-*.moved-aside
-*.xcuserstate
-*.xcscmblueprint
-*.mode1v3
-*.mode2v3
-*.perspectivev3
-*.pbxuser
-*.xcuserdatad
-*.xcdebugger
-*.xcarchive
-*.dSYM
-*.dSYM.zip
-
-# Android
-android/app/build/
-android/.gradle/
-android/gradle/
-android/build/
-android/local.properties
-*.keystore
-*.jks
-
-# Flutter
-flutter/build/
-flutter/.dart_tool/
-flutter/.pub/
-flutter/packages/
-
-# Linux
-linux/build/
-
-# macOS
-macos/Pods/
-macos/Flutter/ephemeral/
-macos/build/
-*.xcworkspace
-*.xcworkspacedata
-*.xccheckout
-*.moved-aside
-*.xcuserstate
-*.xcscmblueplot
-*.mode1v3
-*.mode2v3
-*.perspectivev3
-*.pbxuser
-*.xcuserdatad
-*.xcdebugger
-*.xcarchive
-*.dSYM
-*.dSYM.zip
-
-# Windows
-windows/Build/
-windows/build/
-windows/runner/Release/
-windows/runner/Debug/
-
-# Web
-web/build/
-
-# Testing
-coverage/
-*.coverage
-
-# IDEs
+# Editors
 .vscode/
 .idea/
 *.swp
 *.swo
 *.tmp
 
-# OS generated
+# Logs
+*.log
+
+# Coverage
+coverage/
+htmlcov/
+.coverage
+
+# OS
 .DS_Store
 Thumbs.db
-ehthumbs.db
-Icon?
 ```
