@@ -43,9 +43,19 @@ class PreferencesService {
     await _prefs?.setString('language', language);
   }
 
+  // User name
+  String getUserName() {
+    return _prefs?.getString('user_name') ?? '';
+  }
+
+  Future<void> setUserName(String name) async {
+    await _ensureInitialized();
+    await _prefs?.setString('user_name', name);
+  }
+
   // Currency preference
   String getCurrency() {
-    return _prefs?.getString('currency') ?? 'SAR';
+    return _prefs?.getString('currency') ?? 'EGP';
   }
 
   Future<void> setCurrency(String currency) async {
