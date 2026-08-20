@@ -15,6 +15,22 @@ class AppTheme {
   static const Color errorRed = Color(0xFFEF5350);
   static const Color warningOrange = Color(0xFFFFA726);
   static const Color infoBlue = Color(0xFF42A5F5);
+  
+  // Bill Colors
+  static const Color waterBillColor = Color(0xFF00BCD4); // Teal/Cyan for water
+  static const Color electricityBillColor = Color(0xFFFF9800); // Orange/Amber for electricity
+  
+  // Available bill color palette for custom bills
+  static const List<Color> billColors = [
+    Color(0xFF9C27B0), // Purple
+    Color(0xFF2196F3), // Blue
+    Color(0xFF00BCD4), // Cyan
+    Color(0xFF4CAF50), // Green
+    Color(0xFFFFEB3B), // Yellow
+    Color(0xFFFF9800), // Orange
+    Color(0xFFE91E63), // Pink
+    Color(0xFF607D8B), // Gray
+  ];
 
   static ThemeData lightTheme = ThemeData(
     useMaterial3: true,

@@ -29,13 +29,13 @@ class DatabaseService {
     await db.execute('''
       CREATE TABLE users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        currency_code TEXT NOT NULL DEFAULT 'SAR',
+        currency_code TEXT NOT NULL DEFAULT 'EGP',
         monthly_income_in_minor_units INTEGER DEFAULT 0,
         created_at TEXT NOT NULL
       )
     ''');
 
-    // Recurring expenses table
+    // Recurring expenses table - now includes icon and color for bills
     await db.execute('''
       CREATE TABLE recurring_expenses (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -50,6 +50,8 @@ class DatabaseService {
         reminder_enabled INTEGER DEFAULT 0,
         is_active INTEGER DEFAULT 1,
         currency_code TEXT NOT NULL,
+        icon_code TEXT NOT NULL DEFAULT 'receipt_long',
+        color_hex TEXT NOT NULL DEFAULT 'FF60AD5E',
         created_at TEXT NOT NULL
       )
     ''');
@@ -101,7 +103,7 @@ class DatabaseService {
 
     // Create default user
     await db.insert('users', {
-      'currency_code': 'SAR',
+      'currency_code': 'EGP',
       'monthly_income_in_minor_units': 0,
       'created_at': DateTime.now().toIso8601String(),
     });
@@ -109,6 +111,33 @@ class DatabaseService {
 
   Future<void> init() async {
     await database;
+  }
+
+  // Create recurring expense (bill)
+  Future<int> createRecurringExpense({
+    required String title,
+    required int amountInMinorUnits,
+    required String category,
+    String iconCode = 'receipt_long',
+    String colorHex = 'FF60AD5E',
+    String currencyCode = 'EGP',
+    String frequency = 'monthly',
+    int dueDay = 1,
+  }) async {
+    final db = await database;
+    return await db.insert('recurring_expenses', {
+      'title': title,
+      'amount_in_minor_units': amountInMinorUnits,
+      'category': category,
+      'frequency': frequency,
+      'due_day': dueDay,
+      'start_date': DateTime.now().toIso8601String(),
+      'is_active': 1,
+      'currency_code': currencyCode,
+      'icon_code': iconCode,
+      'color_hex': colorHex,
+      'created_at': DateTime.now().toIso8601String(),
+    });
   }
 
   Future<void> close() async {
